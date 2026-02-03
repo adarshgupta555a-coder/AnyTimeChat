@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 export default function SignUp() {
     const [formData, setFormData] = useState({
         username: '',
@@ -10,6 +10,7 @@ export default function SignUp() {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [errors, setErrors] = useState({});
     const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -106,8 +107,15 @@ export default function SignUp() {
                 body: JSON.stringify(formData)
             });
 
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+                return;
+            }
             const data = await res.json();
             console.log(data);
+            alert("Account created successfully!");
+            navigate("/signin");
+            
             setIsLoading(false);
         } catch (error) {
             console.error(error);
