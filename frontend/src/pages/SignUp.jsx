@@ -74,56 +74,44 @@ export default function SignUp() {
         return newErrors;
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+const handleSubmit = async (e) => {
+    e.preventDefault();
 
-        const newErrors = validateForm();
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
-            return;
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+    }
+
+    setIsLoading(true);
+
+    try {
+        const data = new FormData();
+        data.append("username", formData.username);
+        data.append("email", formData.email);
+        data.append("password", formData.password);
+
+        if (formData.profilePic) {
+            data.append("image", formData.profilePic); // 👈 key must match multer
         }
 
-        setIsLoading(true);
+        const res = await fetch("http://localhost:3000/users/signup", {
+            method: "POST",
+            body: data, // ✅ NO headers here
+        });
 
-        // Simulate API call
-        // setTimeout(() => {
-        //     console.log('Form submitted:', {
-        //         username: formData.username,
-        //         email: formData.email,
-        //         password: '***',
-        //         profilePic: formData.profilePic?.name
-        //     });
-        //     setIsLoading(false);
-        //     alert('Account created successfully!');
-        // }, 1500);
+        const result = await res.json();
+        console.log(result);
 
+        alert("Account created successfully!");
+        navigate("/signin");
+    } catch (error) {
+        console.error(error);
+    } finally {
+        setIsLoading(false);
+    }
+};
 
-        try {
-            const res = await fetch("http://localhost:3000/users/signup", {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            });
-
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-                return;
-            }
-            const data = await res.json();
-            console.log(data);
-            alert("Account created successfully!");
-            navigate("/signin");
-            
-            setIsLoading(false);
-        } catch (error) {
-            console.error(error);
-
-        }
-
-
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
