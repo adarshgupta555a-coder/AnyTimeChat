@@ -1,9 +1,10 @@
 const express = require("express")
 const cors = require("cors");
-const app  = express()
+// const app  = express()
 const AuthRoutes = require("./router/authRoutes")
 const cookieParser = require("cookie-parser");
 const db = require("./utils/db");
+const {app, server} = require("./lib/socket")
 require("dotenv").config();
 
 app.use(cors({
@@ -17,6 +18,6 @@ app.use(express.urlencoded({extended:true}));
 
 app.use("/users",AuthRoutes)
 
-app.listen(3000,()=>{
+server.listen(3000,()=>{
     console.log("port is running on 3000")
 })

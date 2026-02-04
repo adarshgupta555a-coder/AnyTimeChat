@@ -70,7 +70,8 @@ export default function SignIn() {
             });
 
             const data = await res.json();
-            console.log(data);
+            console.log(data?.token);
+            localStorage.setItem("token",data?.token)
             setIsLoading(false);
         } catch (error) {
             console.error(error);

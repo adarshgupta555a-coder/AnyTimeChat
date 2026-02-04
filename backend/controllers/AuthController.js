@@ -54,7 +54,7 @@ const Signin = async (req, res) => {
             sameSite: "lax"
         });
 
-        res.status(200).send({ message: "Signin Successfully" })
+        res.status(200).send({ message: "Signin Successfully",token:token })
     } catch (error) {
         console.log(error)
     }

@@ -1,74 +1,49 @@
-import { useState } from 'react';
-
+import { useEffect, useState } from 'react';
+import {jwtDecode} from "jwt-decode"
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
+  const [chatMessages, setChats] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [chatProfile, setchatProfile] = useState(null);
+  const decodedPayload = jwtDecode(localStorage.getItem("token"));
+  console.log(decodedPayload);
+
 
   // Mock data for chats
-  const chats = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-      lastMessage: 'Hey! How are you doing?',
-      time: '10:30 AM',
-      unread: 3,
-      online: true
-    },
-    {
-      id: 2,
-      name: 'Mike Chen',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
-      lastMessage: 'The meeting is at 3pm',
-      time: '9:45 AM',
-      unread: 0,
-      online: true
-    },
-    {
-      id: 3,
-      name: 'Emma Davis',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
-      lastMessage: 'Thanks for your help!',
-      time: 'Yesterday',
-      unread: 0,
-      online: false
-    },
-    {
-      id: 4,
-      name: 'Project Team',
-      avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Team',
-      lastMessage: 'John: Great work everyone!',
-      time: 'Yesterday',
-      unread: 5,
-      online: false,
-      isGroup: true
-    },
-    {
-      id: 5,
-      name: 'Alex Martinez',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
-      lastMessage: 'See you tomorrow!',
-      time: '2 days ago',
-      unread: 0,
-      online: false
-    }
-  ];
 
   // Mock messages
-  const messages = selectedChat ? [
+ useEffect(()=>{
+   fetch("http://localhost:3000/users/",{
+    method: "GET",
+    credentials: "include"   // ⭐ MUST AGAIN
+}).then(res=>res.json())
+    .then(data=>{
+
+      console.log(data)
+  setchatProfile(data);
+
+    } );
+
+  setChats([
     { id: 1, text: 'Hey! How are you doing?', time: '10:25 AM', sent: false },
     { id: 2, text: "I'm doing great! Just finished the project.", time: '10:26 AM', sent: true },
     { id: 3, text: 'That\'s awesome! Can you share the details?', time: '10:28 AM', sent: false },
     { id: 4, text: 'Sure! I\'ll send you the document right away.', time: '10:29 AM', sent: true },
     { id: 5, text: 'Thanks! I really appreciate it.', time: '10:30 AM', sent: false }
-  ] : [];
+  ])
+
+ },[]);
+
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (messageInput.trim() && selectedChat) {
       console.log('Sending message:', messageInput);
-      setMessageInput('');
+    const now = new Date();
+    const localStringTime = now.toLocaleString();
+     const val =  { id: 6, text: messageInput, time: localStringTime.split(",")[1], sent: true };
+     setChats(prev => ([...prev,val]))
     }
   };
 
@@ -80,7 +55,7 @@ export default function ChatPage() {
         <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
           <div className="relative">
             <img
-              src="https://api.dicebear.com/7.x/avataaars/svg?seed=CurrentUser"
+              src={(chatProfile?.filter(pr=>pr._id==decodedPayload?.id))[0].profilePic}
               alt="Profile"
               className="w-10 h-10 rounded-full cursor-pointer"
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -118,35 +93,35 @@ export default function ChatPage() {
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
-          {chats.map((chat) => (
+          {(chatProfile?.filter(pr=>pr._id!=decodedPayload?.id))?.map((chat) => (
             <div
-              key={chat.id}
+              key={chat?._id}
               onClick={() => setSelectedChat(chat)}
               className={`px-4 py-3 flex items-center space-x-3 hover:bg-gray-50 cursor-pointer transition ${
-                selectedChat?.id === chat.id ? 'bg-gray-100' : ''
+                selectedChat?._id === chat?._id ? 'bg-gray-100' : ''
               }`}
             >
               <div className="relative flex-shrink-0">
                 <img
-                  src={chat.avatar}
-                  alt={chat.name}
+                  src={chat?.profilePic}
+                  alt={chat?.username}
                   className="w-12 h-12 rounded-full"
                 />
-                {chat.online && (
+                {(chat?.online || "online") && (
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
                 )}
               </div>
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 truncate">{chat.name}</h3>
-                  <span className="text-xs text-gray-500 ml-2">{chat.time}</span>
+                  <h3 className="font-semibold text-gray-900 truncate">{chat.username}</h3>
+                  <span className="text-xs text-gray-500 ml-2">{chat?.time||"5:30"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
-                  {chat.unread > 0 && (
+                  <p className="text-sm text-gray-600 truncate">{chat?.lastMessage||"hey there I am chating..."}</p>
+                  {(chat?.unread||2) > 0 && (
                     <span className="ml-2 bg-indigo-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                      {chat.unread}
+                      {chat?.unread||2}
                     </span>
                   )}
                 </div>
@@ -165,18 +140,18 @@ export default function ChatPage() {
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <img
-                    src={selectedChat.avatar}
-                    alt={selectedChat.name}
+                    src={selectedChat?.profilePic}
+                    alt={selectedChat?.username}
                     className="w-10 h-10 rounded-full"
                   />
-                  {selectedChat.online && (
+                  {selectedChat?.online && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
                   )}
                 </div>
                 <div>
-                  <h2 className="font-semibold text-gray-900">{selectedChat.name}</h2>
+                  <h2 className="font-semibold text-gray-900">{selectedChat?.username}</h2>
                   <p className="text-xs text-gray-500">
-                    {selectedChat.online ? 'Online' : 'Offline'}
+                    {selectedChat?.online ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -203,7 +178,7 @@ export default function ChatPage() {
                 backgroundColor: '#efeae2'
               }}
             >
-              {messages.map((message) => (
+               {chatMessages?.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${message.sent ? 'justify-end' : 'justify-start'}`}
@@ -253,7 +228,6 @@ export default function ChatPage() {
                 
                 <input
                   type="text"
-                  value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   placeholder="Type a message"
                   className="flex-1 px-4 py-2 bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-600 transition"
