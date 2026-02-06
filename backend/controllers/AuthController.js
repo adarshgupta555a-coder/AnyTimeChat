@@ -66,8 +66,8 @@ const getAllUsers = async (req, res) => {
     try {
         const users = await userModel.find({});
         res.status(200).send(users)
-        console.log(req.cookies.token);
-        console.log(req.user)
+        // console.log(req.cookies.token);
+        // console.log(req.user)
     } catch (error) {
         console.log(error)
     }
@@ -92,4 +92,4 @@ const cloudinaryImage = async (filename) => {
 };
 
 
-module.exports = { Signup, Signin, getAllUsers, logoutUser };
+module.exports = { Signup, Signin, getAllUsers, logoutUser, cloudinaryImage };

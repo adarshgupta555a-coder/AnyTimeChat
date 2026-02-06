@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function SignIn() {
   const [formData, setFormData] = useState({
@@ -8,6 +9,7 @@ export default function SignIn() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -72,6 +74,7 @@ export default function SignIn() {
             const data = await res.json();
             console.log(data?.token);
             localStorage.setItem("token",data?.token)
+            navigate("/chatroom")
             setIsLoading(false);
         } catch (error) {
             console.error(error);

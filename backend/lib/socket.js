@@ -1,78 +1,113 @@
-const Message = require('../models/messageModel');
-
-const app = require('express')();
-const server = require('http').createServer(app);
-const {Server} = require("socket.io")
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const jwt = require("jsonwebtoken");
+const messageModel = require("../models/messageModel");
+const userModel = require("../models/userModel");
 require("dotenv").config();
 
-// const io = require('socket.io')(server);
+const app = express();
+const server = http.createServer(app);
+
 const io = new Server(server, {
-    cors: {
-        origin: "http://localhost:5173",
-    },
+  cors: {
+    origin: "http://localhost:5173",
+    credentials: true,
+  },
 });
 
+const userSocketMap = new Map();
 
-const userSocketMap = {};
-const getRoomId = (a, b) => {
-  return [a, b].sort().join("_");
-};
+const getRoomId = (a, b) => [a, b].sort().join("_");
 
+// 🔐 Socket Handshake Auth
 io.use((socket, next) => {
-    try {
-        const token = socket.handshake.auth.token;
-        const decoded = jwt.verify(token, JWT_TOKEN);
-        socket.userId = decoded.userId;
-        next();
-    } catch {
-        next(new Error("Authentication failed"));
-    }
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error("No token"));
+
+    const decoded = jwt.verify(token, process.env.JWT_TOKEN);
+    socket.userId = decoded.id;
+
+    console.log("Authenticated user:", socket.userId);
+    next();
+  } catch (err) {
+    console.log("Auth error:", err.message);
+    next(new Error("Authentication failed"));
+  }
 });
 
-io.on("connection", (socket) => {
-    userSocketMap[socket.userId] = socket.id;
-    console.log("User connected:", socket.userId);
+io.on("connection", async (socket) => {
+  console.log("✅ User connected:", socket.userId);
+  // userSocketMap[socket.userId] = socket.id;
+  await userModel.updateOne(
+    { _id: socket.userId },
+    { $set: { "active": true } }
+  )
 
-    socket.on("join-chat", ({ receiverId }) => {
-        const roomId = [socket.userId, receiverId].sort().join("_");
-        socket.join(roomId);
+
+  userSocketMap.set(socket.userId, socket.id);
+  io.emit("online-user", "connected");
+
+  socket.on("join-chat", ({ receiverId }) => {
+    const roomId = getRoomId(socket.userId, receiverId);
+    socket.join(roomId);
+    console.log("Joined room:", roomId);
+  });
+
+  socket.on("send-message", async ({ receiverId, text, image }) => {
+    const roomId = getRoomId(socket.userId, receiverId);
+    console.log(text)
+
+    // 1️⃣ Save message in MongoDB
+    const message = await messageModel.create({
+      roomId,
+      senderId: socket.userId,
+      receiverId: receiverId,
+      text,
+      image,
+      messageType: image ? "image" : "text",
+      status: userSocketMap[receiverId] ? "delivered" : "sent",
     });
 
-    socket.on("send-message", async (data) => {
-        const roomId = getRoomId(socket.userId, receiverId);
-
-        try {
-            // 1️⃣ Save message in MongoDB
-            const message = await Message.create({
-                roomId,
-                senderId: socket.userId,
-                receiverId:receiverId,
-                text,
-                image,
-                messageType: image ? "image" : "text",
-                status: userSocketMap[receiverId] ? "delivered" : "sent",
-            });
-
-            // 2️⃣ Emit to room (real-time)
-            io.to(roomId).emit("receive-message", {
-                _id: message._id,
-                roomId: message.roomId,
-                senderId: message.senderId,
-                text: message.text,
-                image: message.image,
-                status: message.status,
-                createdAt: message.createdAt,
-            });
-        } catch (err) {
-            console.log("Message save error:", err.message);
-        }
-
+    // 2️⃣ Emit to room (real-time)
+    io.to(roomId).emit("receive-message", {
+      _id: message._id,
+      roomId: message.roomId,
+      senderId: message.senderId,
+      text: message.text,
+      image: message.image,
+      status: message.status,
+      createdAt: message.createdAt,
     });
 
-    socket.on("disconnect", () => {
-        delete userSocketMap[socket.userId];
-        console.log("User disconnected:", socket.userId);
-    });
+
+    // io.to(roomId).emit("receive-message", {
+    //   roomId,
+    //   senderId: socket.userId,
+    //   text,
+    //   status: "sent",
+    //   createdAt: new Date().toLocaleTimeString(),
+    // });
+  });
+
+  socket.on("disconnect", async () => {
+    // delete userSocketMap[socket.userId];
+    await userModel.updateOne(
+      { _id: socket.userId },
+      { $set: { "active": false } }
+    )
+    // console.log("❌ User disconnected:", socket.userId);
+    // for (let [userId, socketId] of userSocketMap.entries()) {
+    //   if (socketId === socket.id) {
+    //     userSocketMap.delete(userId);
+    //     break;
+    //   }
+    // }
+    io.emit("online-user", "disconnected");
+
+  });
 });
 
-module.exports = { app, server }
+
+module.exports = { app, server, io };

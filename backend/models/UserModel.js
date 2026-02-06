@@ -5,6 +5,7 @@ const userModel = mongoose.Schema({
     username: {type: String, required: true},
     email: {type: String, requires: true, unqiue: true},
     password:{type:String},
+    active:{type:Boolean, default: false},
     date:{type:Date,default:Date.now}
 })
 

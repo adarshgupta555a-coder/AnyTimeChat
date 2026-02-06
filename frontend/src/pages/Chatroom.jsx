@@ -1,49 +1,136 @@
-import { useEffect, useState } from 'react';
-import {jwtDecode} from "jwt-decode"
+import { useEffect, useRef, useState } from 'react';
+import { jwtDecode } from "jwt-decode"
+import { socket } from './socket';
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
-  const [chatMessages, setChats] = useState(null);
+  const [chatMessages, setChats] = useState([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [chatProfile, setchatProfile] = useState(null);
+  // const [OnlineUsers, setOnlineUsers] = useState([])
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [pathImage, setPathImage] = useState(null);   // URL
+
+  const fileInputRef = useRef(null);
   const decodedPayload = jwtDecode(localStorage.getItem("token"));
-  console.log(decodedPayload);
+  // console.log(decodedPayload);
 
 
   // Mock data for chats
 
   // Mock messages
- useEffect(()=>{
-   fetch("http://localhost:3000/users/",{
-    method: "GET",
-    credentials: "include"   // ⭐ MUST AGAIN
-}).then(res=>res.json())
-    .then(data=>{
+  useEffect(() => {
+    if (!selectedChat?._id) return;
+    getMessages(selectedChat?._id)
+    socket.emit("join-chat", {
+      receiverId: selectedChat._id,
+    });
 
-      console.log(data)
-  setchatProfile(data);
+  }, [selectedChat]);
 
-    } );
 
-  setChats([
-    { id: 1, text: 'Hey! How are you doing?', time: '10:25 AM', sent: false },
-    { id: 2, text: "I'm doing great! Just finished the project.", time: '10:26 AM', sent: true },
-    { id: 3, text: 'That\'s awesome! Can you share the details?', time: '10:28 AM', sent: false },
-    { id: 4, text: 'Sure! I\'ll send you the document right away.', time: '10:29 AM', sent: true },
-    { id: 5, text: 'Thanks! I really appreciate it.', time: '10:30 AM', sent: false }
-  ])
 
- },[]);
+
+  useEffect(() => {
+
+    getAllprofiles()
+    socket.on("receive-message", (msg) => {
+      console.log("Incoming:", msg);
+      if (msg.image !== "" && msg.senderId == decodedPayload.id) {
+        return;
+      }
+      setChats((prev) => [...prev, msg]);
+    });
+
+    socket.on("online-user", (users) => {
+      // console.log(users)
+      // setOnlineUsers(users);
+      getAllprofiles();
+    });
+
+    return () => {
+      socket.off("receive-message");
+    };
+  }, [])
+
+  const getMessages = (receiverId) => {
+    fetch(`http://localhost:3000/chatroom/${receiverId}`, {
+      method: "GET",
+      credentials: "include"
+    }).then(res => res.json())
+      .then(data => {
+        console.log(data)
+        setChats(data);
+      });
+  }
+
+  const getAllprofiles = () => {
+    fetch(`http://localhost:3000/chatroom/profiles`, {
+      method: "GET",
+      credentials: "include"
+    }).then(res => res.json())
+      .then(data => {
+        console.log(data)
+        setchatProfile(data)
+      });
+  }
+
+  function getCurrentTimeHHMMSS() {
+  const now = new Date();
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+  const sendMessage = async () => {
+    if (!pathImage) {
+      return;
+    }
+    const formData = new FormData();
+    formData.append("text", messageInput);
+    formData.append("receiverId", selectedChat._id);
+    formData.append("image", pathImage);
+    const senderData = {
+            roomId: decodedPayload.id+selectedChat._id,
+            senderId: decodedPayload.id,
+            text: messageInput,
+            image: URL.createObjectURL(pathImage),
+            status: "sent",
+            createdAt: getCurrentTimeHHMMSS(),
+          }
+
+      setChats((prev) => [...prev, senderData]);
+    setMessageInput("");
+    setSelectedImage(null);
+    const res = await fetch("http://localhost:3000/chatroom/imagesend", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const data = await res.json();
+    console.log(data);
+
+  };
 
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (messageInput.trim() && selectedChat) {
-      console.log('Sending message:', messageInput);
-    const now = new Date();
-    const localStringTime = now.toLocaleString();
-     const val =  { id: 6, text: messageInput, time: localStringTime.split(",")[1], sent: true };
-     setChats(prev => ([...prev,val]))
+    if (messageInput.trim() && selectedChat && pathImage) {
+      sendMessage()
+    }
+
+    if (messageInput.trim() && selectedChat && !pathImage) {
+      // console.log('Sending message:', messageInput);
+
+      const receiverId = selectedChat._id;
+      socket.emit("send-message", {
+        receiverId,
+        text: messageInput,
+        image: ""
+      });
+      setMessageInput("")
     }
   };
 
@@ -55,14 +142,14 @@ export default function ChatPage() {
         <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
           <div className="relative">
             <img
-              src={(chatProfile?.filter(pr=>pr._id==decodedPayload?.id))[0].profilePic}
+              src={(chatProfile?.find(pr => pr._id == decodedPayload?.id))?.profilePic}
               alt="Profile"
               className="w-10 h-10 rounded-full cursor-pointer"
               onClick={() => setShowUserMenu(!showUserMenu)}
             />
             <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <button className="text-gray-600 hover:text-gray-800 transition">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,13 +180,12 @@ export default function ChatPage() {
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
-          {(chatProfile?.filter(pr=>pr._id!=decodedPayload?.id))?.map((chat) => (
+          {(chatProfile?.filter(pr => pr._id != decodedPayload?.id))?.map((chat) => (
             <div
               key={chat?._id}
               onClick={() => setSelectedChat(chat)}
-              className={`px-4 py-3 flex items-center space-x-3 hover:bg-gray-50 cursor-pointer transition ${
-                selectedChat?._id === chat?._id ? 'bg-gray-100' : ''
-              }`}
+              className={`px-4 py-3 flex items-center space-x-3 hover:bg-gray-50 cursor-pointer transition ${selectedChat?._id === chat?._id ? 'bg-gray-100' : ''
+                }`}
             >
               <div className="relative flex-shrink-0">
                 <img
@@ -107,21 +193,21 @@ export default function ChatPage() {
                   alt={chat?.username}
                   className="w-12 h-12 rounded-full"
                 />
-                {(chat?.online || "online") && (
+                {chat?.active && (
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
                 )}
               </div>
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900 truncate">{chat.username}</h3>
-                  <span className="text-xs text-gray-500 ml-2">{chat?.time||"5:30"}</span>
+                  <span className="text-xs text-gray-500 ml-2">{chat?.time || "5:30"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600 truncate">{chat?.lastMessage||"hey there I am chating..."}</p>
-                  {(chat?.unread||2) > 0 && (
+                  <p className="text-sm text-gray-600 truncate">{chat?.lastMessage?.text || "hey there I am chating..."}</p>
+                  {(chat?.unread || 2) > 0 && (
                     <span className="ml-2 bg-indigo-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                      {chat?.unread||2}
+                      {chat?.unread || 2}
                     </span>
                   )}
                 </div>
@@ -144,14 +230,14 @@ export default function ChatPage() {
                     alt={selectedChat?.username}
                     className="w-10 h-10 rounded-full"
                   />
-                  {selectedChat?.online && (
+                  {selectedChat?.active && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
                   )}
                 </div>
                 <div>
                   <h2 className="font-semibold text-gray-900">{selectedChat?.username}</h2>
                   <p className="text-xs text-gray-500">
-                    {selectedChat?.online ? 'Online' : 'Offline'}
+                    {selectedChat?.active ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -171,31 +257,35 @@ export default function ChatPage() {
             </div>
 
             {/* Messages Area */}
-            <div 
+            <div
               className="flex-1 overflow-y-auto p-4 space-y-4"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1d5db' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
                 backgroundColor: '#efeae2'
               }}
             >
-               {chatMessages?.map((message) => (
+              {chatMessages?.length > 0 && chatMessages?.map((message, index) => (
                 <div
-                  key={message.id}
-                  className={`flex ${message.sent ? 'justify-end' : 'justify-start'}`}
+                  key={index}
+                  className={`flex ${(message?.senderId === decodedPayload?.id) ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.sent
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white text-gray-900'
-                    } shadow`}
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${(message?.senderId === decodedPayload?.id)
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-900'
+                      } shadow`}
                   >
+                    {message?.image&&   <img
+                      src={message.image}
+                      alt="preview"
+                      className="w-full h-32 object-cover rounded-lg border"
+                    />}
                     <p className="text-sm">{message.text}</p>
                     <div className="flex items-center justify-end mt-1 space-x-1">
-                      <span className={`text-xs ${message.sent ? 'text-green-100' : 'text-gray-500'}`}>
-                        {message.time}
+                      <span className={`text-xs ${(message?.senderId === decodedPayload?.id) ? 'text-green-100' : 'text-gray-500'}`}>
+                        {new Date(message?.createdAt)?.toUTCString()?.split(' ')[4]}
                       </span>
-                      {message.sent && (
+                      {(message?.senderId === decodedPayload?.id) && (
                         <svg className="w-4 h-4 text-green-100" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
@@ -219,20 +309,65 @@ export default function ChatPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current.click()}
                   className="text-gray-600 hover:text-gray-800 transition"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                    />
                   </svg>
                 </button>
-                
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setPathImage(file)
+                      setSelectedImage(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+
+
+                {selectedImage && (
+                  <div className="relative mb-2">
+                    <img
+                      src={selectedImage}
+                      alt="preview"
+                      className="w-32 h-32 object-cover rounded-lg border"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(null)}
+                      className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 <input
                   type="text"
+                  value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   placeholder="Type a message"
                   className="flex-1 px-4 py-2 bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-600 transition"
                 />
-                
+
                 <button
                   type="submit"
                   className="bg-indigo-600 text-white p-2 rounded-full hover:bg-green-600 transition"
