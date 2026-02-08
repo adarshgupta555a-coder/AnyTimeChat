@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { jwtDecode } from "jwt-decode"
 import { socket } from './socket';
+import { useNavigate } from 'react-router-dom';
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
@@ -12,8 +13,10 @@ export default function ChatPage() {
   const [pathImage, setPathImage] = useState(null);   // URL
 
   const fileInputRef = useRef(null);
+  const navigate = useNavigate()
   const decodedPayload = jwtDecode(localStorage.getItem("token"));
   // console.log(decodedPayload);
+  const chatRef = useRef(null);
 
 
   // Mock data for chats
@@ -25,14 +28,27 @@ export default function ChatPage() {
     socket.emit("join-chat", {
       receiverId: selectedChat._id,
     });
+ 
 
   }, [selectedChat]);
 
-
-
+useEffect(()=>{
+     if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+},[chatMessages]);
 
   useEffect(() => {
+    if (!localStorage.getItem("token")) {
+      navigate("/signin");
+    }
+    console.log(decodedPayload)
+    const currentTime = Date.now() / 1000; // JWT exp is in seconds
+    if (decodedPayload.exp < currentTime) navigate("/signin");;
 
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
     getAllprofiles()
     socket.on("receive-message", (msg) => {
       console.log("Incoming:", msg);
@@ -40,11 +56,12 @@ export default function ChatPage() {
         return;
       }
       setChats((prev) => [...prev, msg]);
+      if (chatRef.current) {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      }
     });
 
     socket.on("online-user", (users) => {
-      // console.log(users)
-      // setOnlineUsers(users);
       getAllprofiles();
     });
 
@@ -65,24 +82,29 @@ export default function ChatPage() {
   }
 
   const getAllprofiles = () => {
-    fetch(`http://localhost:3000/chatroom/profiles`, {
+    fetch(`http://localhost:3000/chatroom/chats/profiles`, {
       method: "GET",
       credentials: "include"
     }).then(res => res.json())
       .then(data => {
         console.log(data)
         setchatProfile(data)
-      });
+        if (data.message === "Please login first") {
+                  navigate("/signin");
+        }
+      }).catch((err)=>{
+        console.log(err);
+      })
   }
 
   function getCurrentTimeHHMMSS() {
-  const now = new Date();
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const seconds = now.getSeconds().toString().padStart(2, '0');
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
 
-  return `${hours}:${minutes}:${seconds}`;
-}
+    return `${hours}:${minutes}:${seconds}`;
+  }
 
   const sendMessage = async () => {
     if (!pathImage) {
@@ -93,15 +115,15 @@ export default function ChatPage() {
     formData.append("receiverId", selectedChat._id);
     formData.append("image", pathImage);
     const senderData = {
-            roomId: decodedPayload.id+selectedChat._id,
-            senderId: decodedPayload.id,
-            text: messageInput,
-            image: URL.createObjectURL(pathImage),
-            status: "sent",
-            createdAt: getCurrentTimeHHMMSS(),
-          }
+      roomId: decodedPayload.id + selectedChat._id,
+      senderId: decodedPayload.id,
+      text: messageInput,
+      image: URL.createObjectURL(pathImage),
+      status: "sent",
+      createdAt: getCurrentTimeHHMMSS(),
+    }
 
-      setChats((prev) => [...prev, senderData]);
+    setChats((prev) => [...prev, senderData]);
     setMessageInput("");
     setSelectedImage(null);
     const res = await fetch("http://localhost:3000/chatroom/imagesend", {
@@ -259,6 +281,8 @@ export default function ChatPage() {
             {/* Messages Area */}
             <div
               className="flex-1 overflow-y-auto p-4 space-y-4"
+                                ref={chatRef}
+
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1d5db' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
                 backgroundColor: '#efeae2'
@@ -275,7 +299,7 @@ export default function ChatPage() {
                       : 'bg-white text-gray-900'
                       } shadow`}
                   >
-                    {message?.image&&   <img
+                    {message?.image && <img
                       src={message.image}
                       alt="preview"
                       className="w-full h-32 object-cover rounded-lg border"

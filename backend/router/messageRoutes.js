@@ -4,7 +4,7 @@ const {getMessages, getProfiles, handlemsgWithImg} = require("../controllers/Mes
 const isLoggedin = require("../middleware/isLoggined");
 const upload = require("../middleware/multer");
 
-router.get("/profiles", isLoggedin, getProfiles);
+router.get("/chats/profiles", isLoggedin, getProfiles);
 // router.post("/upload",upload.single("image"),uploadImage);
 router.post("/imagesend",upload.single("image"),isLoggedin,handlemsgWithImg);
 router.get("/:receiverid", isLoggedin, getMessages);

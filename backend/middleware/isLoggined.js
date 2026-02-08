@@ -21,7 +21,8 @@ const isLoggedin = async (req, res, next) => {
         next();
 
     } catch (error) {
-        return res.status(401).send({ message: "Invalid token" });
+
+       return res.status(401).send({ message: "Invalid token" });
     }
 };
 

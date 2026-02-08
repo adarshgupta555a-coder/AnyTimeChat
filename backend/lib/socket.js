@@ -47,7 +47,7 @@ io.on("connection", async (socket) => {
 
 
   userSocketMap.set(socket.userId, socket.id);
-  io.emit("online-user", "connected");
+  io.emit("online-user", {userId: socket.userId});
 
   socket.on("join-chat", ({ receiverId }) => {
     const roomId = getRoomId(socket.userId, receiverId);
@@ -82,28 +82,14 @@ io.on("connection", async (socket) => {
     });
 
 
-    // io.to(roomId).emit("receive-message", {
-    //   roomId,
-    //   senderId: socket.userId,
-    //   text,
-    //   status: "sent",
-    //   createdAt: new Date().toLocaleTimeString(),
-    // });
   });
 
   socket.on("disconnect", async () => {
-    // delete userSocketMap[socket.userId];
     await userModel.updateOne(
       { _id: socket.userId },
       { $set: { "active": false } }
     )
-    // console.log("❌ User disconnected:", socket.userId);
-    // for (let [userId, socketId] of userSocketMap.entries()) {
-    //   if (socketId === socket.id) {
-    //     userSocketMap.delete(userId);
-    //     break;
-    //   }
-    // }
+
     io.emit("online-user", "disconnected");
 
   });
