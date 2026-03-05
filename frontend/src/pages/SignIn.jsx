@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../stores/AuthStore';
 
 export default function SignIn() {
   const [formData, setFormData] = useState({
@@ -10,6 +11,7 @@ export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+  const {setAuth} = useAuthStore();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -72,11 +74,16 @@ export default function SignIn() {
             });
 
             const data = await res.json();
-            console.log(data?.token);
+            console.log(data);
+            setAuth(data)
             localStorage.setItem("token",data?.token)
-            navigate("/chatroom")
+            if(!data.token){
+              alert("please enter correct details")
+            }
+            // navigate("/chatroom")
             setIsLoading(false);
         } catch (error) {
+          console.log("hi signin")
             console.error(error);
 
         }

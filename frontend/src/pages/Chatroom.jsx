@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { jwtDecode } from "jwt-decode"
-import { socket } from './socket';
+// import { jwtDecode } from "jwt-decode"
+// import { socket } from './socket';
+import { useSocketStore } from '../stores/socketStore';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../stores/AuthStore';
+import { getVerifyUser } from '../utils/getVerifyUser';
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
@@ -14,9 +17,11 @@ export default function ChatPage() {
 
   const fileInputRef = useRef(null);
   const navigate = useNavigate()
-  const decodedPayload = jwtDecode(localStorage.getItem("token"));
+  // const decodedPayload = jwtDecode(localStorage.getItem("token"));
   // console.log(decodedPayload);
   const chatRef = useRef(null);
+  const {user,setAuth}  = useAuthStore();
+  const {socket,loading,connectSocket} = useSocketStore()
 
 
   // Mock data for chats
@@ -38,37 +43,37 @@ useEffect(()=>{
     }
 },[chatMessages]);
 
-  useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      navigate("/signin");
-    }
-    console.log(decodedPayload)
-    const currentTime = Date.now() / 1000; // JWT exp is in seconds
-    if (decodedPayload.exp < currentTime) navigate("/signin");;
-
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
+// Effect 1 - sirf auth aur socket connect karo
+useEffect(() => {
+    getVerifyUser().then((data) => {
+        setAuth(data)
+        connectSocket()
+    })
     getAllprofiles()
-    socket.on("receive-message", (msg) => {
-      console.log("Incoming:", msg);
-      if (msg.image !== "" && msg.senderId == decodedPayload.id) {
-        return;
-      }
-      setChats((prev) => [...prev, msg]);
-      if (chatRef.current) {
-        chatRef.current.scrollTop = chatRef.current.scrollHeight;
-      }
-    });
+}, [])
 
-    socket.on("online-user", (users) => {
-      getAllprofiles();
-    });
+// Effect 2 - jab socket ready ho TAB listeners lagao
+useEffect(() => {
+    if (!socket) return  // socket nahi hai toh ruko
+
+    socket.on("receive-message", (msg) => {
+        console.log("Incoming:", msg)
+        if (msg.image !== "" && msg.senderId == user?._id) return
+        setChats((prev) => [...prev, msg])
+        if (chatRef.current) {
+            chatRef.current.scrollTop = chatRef.current.scrollHeight
+        }
+    })
+
+    socket.on("online-user", () => {
+        getAllprofiles()
+    })
 
     return () => {
-      socket.off("receive-message");
-    };
-  }, [])
+        socket.off("receive-message")
+        socket.off("online-user")  // ✅ Yeh bhi cleanup karo
+    }
+}, [socket])  // ← socket badla (null → connected) toh yeh chale
 
   const getMessages = (receiverId) => {
     fetch(`http://localhost:3000/chatroom/${receiverId}`, {
@@ -115,8 +120,8 @@ useEffect(()=>{
     formData.append("receiverId", selectedChat._id);
     formData.append("image", pathImage);
     const senderData = {
-      roomId: decodedPayload.id + selectedChat._id,
-      senderId: decodedPayload.id,
+      roomId: user._id + selectedChat._id,
+      senderId: user._id,
       text: messageInput,
       image: URL.createObjectURL(pathImage),
       status: "sent",
@@ -156,15 +161,19 @@ useEffect(()=>{
     }
   };
 
+  if (loading) {
+    return(<p>Loading...</p>)
+  }
+
   return (
-    <div className="h-screen flex bg-gray-100">
+<>{  !loading &&  (<div className="h-screen flex bg-gray-100">
       {/* Sidebar */}
       <div className="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col">
         {/* Sidebar Header */}
         <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
           <div className="relative">
             <img
-              src={(chatProfile?.find(pr => pr._id == decodedPayload?.id))?.profilePic}
+              src={(chatProfile?.find(pr => pr._id == user?._id))?.profilePic}
               alt="Profile"
               className="w-10 h-10 rounded-full cursor-pointer"
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -202,7 +211,7 @@ useEffect(()=>{
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
-          {(chatProfile?.filter(pr => pr._id != decodedPayload?.id))?.map((chat) => (
+          {(chatProfile?.filter(pr => pr._id != user?._id))?.map((chat) => (
             <div
               key={chat?._id}
               onClick={() => setSelectedChat(chat)}
@@ -291,10 +300,10 @@ useEffect(()=>{
               {chatMessages?.length > 0 && chatMessages?.map((message, index) => (
                 <div
                   key={index}
-                  className={`flex ${(message?.senderId === decodedPayload?.id) ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${(message?.senderId === user?._id) ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${(message?.senderId === decodedPayload?.id)
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${(message?.senderId === user?._id)
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white text-gray-900'
                       } shadow`}
@@ -306,10 +315,10 @@ useEffect(()=>{
                     />}
                     <p className="text-sm">{message.text}</p>
                     <div className="flex items-center justify-end mt-1 space-x-1">
-                      <span className={`text-xs ${(message?.senderId === decodedPayload?.id) ? 'text-green-100' : 'text-gray-500'}`}>
+                      <span className={`text-xs ${(message?.senderId === user?._id) ? 'text-green-100' : 'text-gray-500'}`}>
                         {new Date(message?.createdAt)?.toUTCString()?.split(' ')[4]}
                       </span>
-                      {(message?.senderId === decodedPayload?.id) && (
+                      {(message?.senderId === user?._id) && (
                         <svg className="w-4 h-4 text-green-100" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
@@ -418,6 +427,6 @@ useEffect(()=>{
           </div>
         )}
       </div>
-    </div>
+    </div>)}</>
   );
 }

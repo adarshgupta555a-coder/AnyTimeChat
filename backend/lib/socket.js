@@ -40,10 +40,12 @@ io.use((socket, next) => {
 io.on("connection", async (socket) => {
   console.log("✅ User connected:", socket.userId);
   // userSocketMap[socket.userId] = socket.id;
-  await userModel.updateOne(
+ const username =  await userModel.updateOne(
     { _id: socket.userId },
     { $set: { "active": true } }
   )
+
+  console.log(username.name);
 
 
   userSocketMap.set(socket.userId, socket.id);

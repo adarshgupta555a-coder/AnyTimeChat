@@ -2,6 +2,7 @@ const userModel = require("../models/userModel");
 const bcrypt = require('bcrypt');
 const generateToken = require('../utils/generateToken');
 const cloudinary = require("../utils/cloudinary");
+const jwt = require("jsonwebtoken");
 
 
 const Signup = async (req, res) => {
@@ -37,7 +38,9 @@ const Signup = async (req, res) => {
 const Signin = async (req, res) => {
     try {
         const { email, password } = req.body;
+        // console.log(email)
         const userCheck = await userModel.findOne({ email: email });
+        // console.log(userCheck)
         if (!userCheck) {
             return res.status(400).send({ message: "email Id and password is invalid." })
         }
@@ -48,14 +51,17 @@ const Signin = async (req, res) => {
         }
 
         const token = generateToken(userCheck);
+        // console.log(token)
         res.cookie("token", token, {
             httpOnly: true,
-            secure: false,      // localhost ke liye FALSE
-            sameSite: "lax"
+            secure: false,
+            sameSite: "lax",
+            maxAge: 24 * 60 * 60 * 1000
         });
 
-        res.status(200).send({ message: "Signin Successfully",token:token })
+        res.status(200).send({ message: "Signin Successfully", token: token })
     } catch (error) {
+        console.log("hi error")
         console.log(error)
     }
 }
@@ -78,6 +84,34 @@ const logoutUser = async (req, res) => {
     res.redirect('/');
 }
 
+const verifyToken = async (req, res) => {
+    try {
+
+        // console.log("Cookies:", req.cookies);
+        const token = req.cookies?.token;
+
+        // console.log("Token:", token);
+
+        if (!token) {
+            return res.status(401).send({ message: "Please login first" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_TOKEN);
+
+        const user = await userModel.findById(decoded.id).select("-password");
+
+        if (!user) {
+            return res.status(401).send({ message: "User not found" });
+        }
+
+        res.status(200).send({user: user, token: token});
+
+    } catch (error) {
+        console.log(error);
+        return res.status(401).send({ message: "Invalid token" });
+    }
+};
+
 
 const cloudinaryImage = async (filename) => {
     try {
@@ -92,4 +126,4 @@ const cloudinaryImage = async (filename) => {
 };
 
 
-module.exports = { Signup, Signin, getAllUsers, logoutUser, cloudinaryImage };
+module.exports = { Signup, Signin, getAllUsers, logoutUser, cloudinaryImage, verifyToken };

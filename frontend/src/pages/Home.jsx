@@ -1,18 +1,23 @@
 import React from 'react'
 import { useEffect } from 'react'
+import { useAuthStore } from '../stores/AuthStore';
+import {getVerifyUser} from "../utils/getVerifyUser"
 
 const Home = () => {
+  const {setAuth,user} = useAuthStore();
 
   useEffect(() => {
-    fetch("http://localhost:3000/users/",{
-    method: "GET",
-    credentials: "include"   // ⭐ MUST AGAIN
-}).then(res=>res.json())
-    .then(data=>console.log(data) );
+    getVerifyUser().then((data)=>{
+      console.log(data)
+      setAuth(data)
+
+    })
   }, [])
+
+ 
   return (
     <div>
-      <h1 className='text-center text-red-500'>Hello world</h1>
+      <h1 className='text-center text-red-500'>{user?.username}</h1>
     </div>
   )
 }
