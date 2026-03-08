@@ -11,17 +11,18 @@ export default function ChatPage() {
   const [chatMessages, setChats] = useState([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [chatProfile, setchatProfile] = useState(null);
-  // const [OnlineUsers, setOnlineUsers] = useState([])
+  const [OnlineUsers, setOnlineUsers] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [pathImage, setPathImage] = useState(null);   // URL
-
+  const [typingUsers, setTypingUsers] = useState(null);
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null)
   const navigate = useNavigate()
   // const decodedPayload = jwtDecode(localStorage.getItem("token"));
   // console.log(decodedPayload);
   const chatRef = useRef(null);
-  const {user,setAuth}  = useAuthStore();
-  const {socket,loading,connectSocket} = useSocketStore()
+  const { user, setAuth } = useAuthStore();
+  const { socket, loading, connectSocket } = useSocketStore()
 
 
   // Mock data for chats
@@ -33,47 +34,69 @@ export default function ChatPage() {
     socket.emit("join-chat", {
       receiverId: selectedChat._id,
     });
- 
+
 
   }, [selectedChat]);
 
-useEffect(()=>{
-     if (chatRef.current) {
+  useEffect(() => {
+    if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-},[chatMessages]);
+  }, [chatMessages]);
 
-// Effect 1 - sirf auth aur socket connect karo
-useEffect(() => {
+  // Effect 1 - sirf auth aur socket connect karo
+  useEffect(() => {
     getVerifyUser().then((data) => {
-        setAuth(data)
-        connectSocket()
+      setAuth(data)
+      connectSocket()
     })
     getAllprofiles()
-}, [])
+  }, [])
 
-// Effect 2 - jab socket ready ho TAB listeners lagao
-useEffect(() => {
+  // Effect 2 - jab socket ready ho TAB listeners lagao
+  useEffect(() => {
     if (!socket) return  // socket nahi hai toh ruko
 
     socket.on("receive-message", (msg) => {
-        console.log("Incoming:", msg)
-        if (msg.image !== "" && msg.senderId == user?._id) return
-        setChats((prev) => [...prev, msg])
-        if (chatRef.current) {
-            chatRef.current.scrollTop = chatRef.current.scrollHeight
-        }
+      console.log("Incoming:", msg)
+      if (msg.image !== "" && msg.senderId == user?._id) return
+      setChats((prev) => [...prev, msg])
+      if (chatRef.current) {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight
+      }
     })
 
-    socket.on("online-user", () => {
-        getAllprofiles()
+    socket.on("online-user", (data) => {
+      setOnlineUsers(data.usersStatus || [])
+      getAllprofiles()
+    })
+
+    socket.on("offline-user", (data) => {
+      setOnlineUsers((prev = []) =>
+        prev.filter((id) => id !== data.userId)
+      )
+    })
+
+    socket.on("user-typing", (data) => {
+
+      setTypingUsers(data.userId)
+
+    })
+
+    socket.on("user-stop-typing", (data) => {
+      console.log("ssss")
+      setTypingUsers(null)
+
     })
 
     return () => {
-        socket.off("receive-message")
-        socket.off("online-user")  // ✅ Yeh bhi cleanup karo
+      socket.off("receive-message")
+      socket.off("online-user")  // ✅ Yeh bhi cleanup karo
+      socket.off("offline-user");
+      socket.off("user-typing")
+      socket.off("user-stop-typing")
     }
-}, [socket])  // ← socket badla (null → connected) toh yeh chale
+  }, [socket])  // ← socket badla (null → connected) toh yeh chale
 
   const getMessages = (receiverId) => {
     fetch(`http://localhost:3000/chatroom/${receiverId}`, {
@@ -95,9 +118,9 @@ useEffect(() => {
         console.log(data)
         setchatProfile(data)
         if (data.message === "Please login first") {
-                  navigate("/signin");
+          navigate("/signin");
         }
-      }).catch((err)=>{
+      }).catch((err) => {
         console.log(err);
       })
   }
@@ -161,12 +184,34 @@ useEffect(() => {
     }
   };
 
+  const onTypingMessage = (val) => {
+
+    setMessageInput(val)
+
+    if (val.trim() !== "") {
+      socket.emit("typing", { receiverId: selectedChat._id })
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+
+      socket.emit("stop-typing", {
+        receiverId: selectedChat._id
+      })
+
+    }, 2000)
+
+  }
+
   if (loading) {
-    return(<p>Loading...</p>)
+    return (<p>Loading...</p>)
   }
 
   return (
-<>{  !loading &&  (<div className="h-screen flex bg-gray-100">
+    <>{!loading && (<div className="h-screen flex bg-gray-100">
       {/* Sidebar */}
       <div className="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col">
         {/* Sidebar Header */}
@@ -224,7 +269,7 @@ useEffect(() => {
                   alt={chat?.username}
                   className="w-12 h-12 rounded-full"
                 />
-                {chat?.active && (
+                {OnlineUsers?.length > 0 && OnlineUsers.includes(chat._id) && (
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
                 )}
               </div>
@@ -235,7 +280,7 @@ useEffect(() => {
                   <span className="text-xs text-gray-500 ml-2">{chat?.time || "5:30"}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600 truncate">{chat?.lastMessage?.text || "hey there I am chating..."}</p>
+                  <p className="text-sm text-gray-600 truncate">{chatMessages?.findLast((u) => u?.senderId === chat._id)?.text || chat?.lastMessage?.text || "hey there I am chating..."}</p>
                   {(chat?.unread || 2) > 0 && (
                     <span className="ml-2 bg-indigo-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 min-w-[20px] text-center">
                       {chat?.unread || 2}
@@ -261,14 +306,14 @@ useEffect(() => {
                     alt={selectedChat?.username}
                     className="w-10 h-10 rounded-full"
                   />
-                  {selectedChat?.active && (
+                  {OnlineUsers?.length > 0 && OnlineUsers.includes(selectedChat._id) && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
                   )}
                 </div>
                 <div>
                   <h2 className="font-semibold text-gray-900">{selectedChat?.username}</h2>
                   <p className="text-xs text-gray-500">
-                    {selectedChat?.active ? 'Online' : 'Offline'}
+                    {typingUsers === selectedChat._id ? "typing..." : OnlineUsers?.length > 0 && OnlineUsers.includes(selectedChat._id) ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -290,7 +335,7 @@ useEffect(() => {
             {/* Messages Area */}
             <div
               className="flex-1 overflow-y-auto p-4 space-y-4"
-                                ref={chatRef}
+              ref={chatRef}
 
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d1d5db' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -396,7 +441,7 @@ useEffect(() => {
                 <input
                   type="text"
                   value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
+                  onChange={(e) => onTypingMessage(e.target.value)}
                   placeholder="Type a message"
                   className="flex-1 px-4 py-2 bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-600 transition"
                 />

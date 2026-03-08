@@ -19,6 +19,7 @@ const io = new Server(server, {
 const userSocketMap = new Map();
 
 const getRoomId = (a, b) => [a, b].sort().join("_");
+let usersStatus = new Set();
 
 // 🔐 Socket Handshake Auth
 io.use((socket, next) => {
@@ -40,22 +41,45 @@ io.use((socket, next) => {
 io.on("connection", async (socket) => {
   console.log("✅ User connected:", socket.userId);
   // userSocketMap[socket.userId] = socket.id;
- const username =  await userModel.updateOne(
-    { _id: socket.userId },
-    { $set: { "active": true } }
-  )
+  //  const username =  await userModel.updateOne(
+  //     { _id: socket.userId },
+  //     { $set: { "active": true } }
+  //   )
 
-  console.log(username.name);
+  // console.log(username.name);
 
-
+  usersStatus.add(socket.userId);
   userSocketMap.set(socket.userId, socket.id);
-  io.emit("online-user", {userId: socket.userId});
+
+  io.emit("online-user", {
+    usersStatus: [...usersStatus]
+  });
 
   socket.on("join-chat", ({ receiverId }) => {
     const roomId = getRoomId(socket.userId, receiverId);
     socket.join(roomId);
     console.log("Joined room:", roomId);
   });
+
+  socket.on("typing", ({ receiverId }) => {
+
+    const roomId = getRoomId(socket.userId, receiverId)
+
+    socket.to(roomId).emit("user-typing", {
+      userId: socket.userId
+    })
+
+  })
+
+  socket.on("stop-typing", ({ receiverId }) => {
+
+    const roomId = getRoomId(socket.userId, receiverId)
+
+    socket.to(roomId).emit("user-stop-typing", {
+      userId: socket.userId
+    })
+
+  })
 
   socket.on("send-message", async ({ receiverId, text, image }) => {
     const roomId = getRoomId(socket.userId, receiverId);
@@ -69,7 +93,7 @@ io.on("connection", async (socket) => {
       text,
       image,
       messageType: image ? "image" : "text",
-      status: userSocketMap[receiverId] ? "delivered" : "sent",
+      status: userSocketMap.get(receiverId) ? "delivered" : "sent"
     });
 
     // 2️⃣ Emit to room (real-time)
@@ -77,6 +101,7 @@ io.on("connection", async (socket) => {
       _id: message._id,
       roomId: message.roomId,
       senderId: message.senderId,
+      receiverId: message.receiverId,
       text: message.text,
       image: message.image,
       status: message.status,
@@ -87,12 +112,17 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("disconnect", async () => {
-    await userModel.updateOne(
-      { _id: socket.userId },
-      { $set: { "active": false } }
-    )
+    // await userModel.updateOne(
+    //   { _id: socket.userId },
+    //   { $set: { "active": false } }
+    // )
+    usersStatus.delete(socket.userId);
+    userSocketMap.delete(socket.userId);
+    console.log(usersStatus)
+    io.emit("offline-user", {
+      userId: socket.userId
+    });
 
-    io.emit("online-user", "disconnected");
 
   });
 });
