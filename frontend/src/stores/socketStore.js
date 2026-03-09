@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { useAuthStore } from "./AuthStore";
 import { io } from "socket.io-client";
+const backend_url = import.meta.env.VITE_BACKEND_URL;
+
 
 export const useSocketStore = create((set) => ({
     socket: null,
@@ -8,7 +10,7 @@ export const useSocketStore = create((set) => ({
     connectSocket: () => {
         const token = useAuthStore.getState().token;
         console.log(token)
-        const socket = io("http://localhost:3000", {
+        const socket = io(backend_url, {
             auth: {
                 token: token, // JWT
             },

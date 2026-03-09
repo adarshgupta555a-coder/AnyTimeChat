@@ -5,13 +5,14 @@ const jwt = require("jsonwebtoken");
 const messageModel = require("../models/messageModel");
 const userModel = require("../models/userModel");
 require("dotenv").config();
+const webpush = require('web-push');
 
 const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   },
 });
@@ -20,6 +21,16 @@ const userSocketMap = new Map();
 
 const getRoomId = (a, b) => [a, b].sort().join("_");
 let usersStatus = new Set();
+
+const publicKey = process.env.WEBPUSH_PUBLIC_KEY
+const privateKey = process.env.WEBPUSH_PRIVATE_KEY
+
+webpush.setVapidDetails(
+  "mailto:test@test.com",
+  publicKey,
+  privateKey
+);
+
 
 // 🔐 Socket Handshake Auth
 io.use((socket, next) => {
@@ -83,7 +94,13 @@ io.on("connection", async (socket) => {
 
   socket.on("send-message", async ({ receiverId, text, image }) => {
     const roomId = getRoomId(socket.userId, receiverId);
+    const userSubs = await userModel.findById(receiverId);
     console.log(text)
+    const payload = JSON.stringify({
+      title: "message",
+      message: text,
+    });
+
 
     // 1️⃣ Save message in MongoDB
     const message = await messageModel.create({
@@ -108,6 +125,10 @@ io.on("connection", async (socket) => {
       createdAt: message.createdAt,
     });
 
+    if (userSubs.msg && !usersStatus.has(receiverId)) {
+      let subscript = JSON.parse(userSubs.msg)
+       webpush.sendNotification(subscript, payload);
+    }
 
   });
 

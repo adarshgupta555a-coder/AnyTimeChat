@@ -1,7 +1,8 @@
 
 export const getVerifyUser = async () => {
+    const backend_url = import.meta.env.VITE_BACKEND_URL;
     try {
-          const res = await fetch("http://localhost:3000/users/verify", {
+          const res = await fetch(`${backend_url}/users/verify`, {
                 method: "GET",
                 credentials: "include",
             });

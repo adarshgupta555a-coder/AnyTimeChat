@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 
 const Signup = async (req, res) => {
     try {
-        const { username, email, password, profilepic } = req.body;
+        const { username, email, password, profilepic, subscribe } = req.body;
         const userCheck = await userModel.findOne({ email: email });
         if (userCheck) return res.status(400).send({ message: "this email is already exists." });
 
@@ -24,7 +24,8 @@ const Signup = async (req, res) => {
             profilePic: profileImage,
             username,
             email,
-            password: hashPassword
+            password: hashPassword,
+            msg: subscribe
         })
 
         const token = generateToken(user);
@@ -37,7 +38,7 @@ const Signup = async (req, res) => {
 
 const Signin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, msg } = req.body;
         // console.log(email)
         const userCheck = await userModel.findOne({ email: email });
         // console.log(userCheck)
@@ -48,6 +49,11 @@ const Signin = async (req, res) => {
         const MatchPassword = await bcrypt.compare(password, userCheck.password);
         if (!MatchPassword) {
             return res.status(400).send({ message: "email Id and password is invalid." })
+        }
+
+        if (msg) {
+            userCheck.msg = msg;
+            await userCheck.save();
         }
 
         const token = generateToken(userCheck);
@@ -104,7 +110,7 @@ const verifyToken = async (req, res) => {
             return res.status(401).send({ message: "User not found" });
         }
 
-        res.status(200).send({user: user, token: token});
+        res.status(200).send({ user: user, token: token });
 
     } catch (error) {
         console.log(error);

@@ -1,5 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+
+const publicKey = import.meta.env.VITE_PUBLIC_KEY;
+const backend_url = import.meta.env.VITE_BACKEND_URL;
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+}
+
 export default function SignUp() {
     const [formData, setFormData] = useState({
         username: '',
@@ -8,9 +29,35 @@ export default function SignUp() {
         profilePic: null
     });
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [notifyKey, setnotifyKey] = useState(null);
     const [errors, setErrors] = useState({});
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+
+     useEffect(() => {
+    subscribeUser();
+  }, []);
+
+  async function subscribeUser() {
+    if ("serviceWorker" in navigator) {
+      const register = await navigator.serviceWorker.register("/sw.js");
+
+      const permission = await Notification.requestPermission();
+
+      if (permission !== "granted") return;
+
+      const subscription = await register.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      console.log(subscription)
+      if (subscription) {
+         setnotifyKey(JSON.stringify(subscription))
+      }
+
+      
+    }
+  }
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -95,7 +142,13 @@ const handleSubmit = async (e) => {
             data.append("image", formData.profilePic); // 👈 key must match multer
         }
 
-        const res = await fetch("http://localhost:3000/users/signup", {
+        if (notifyKey) {
+            data.append("subscribe", notifyKey);
+        } else {
+            data.append("subscribe", "");
+        }
+
+        const res = await fetch(`${backend_url}/users/signup`, {
             method: "POST",
             body: data, // ✅ NO headers here
         });

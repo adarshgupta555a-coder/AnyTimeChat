@@ -5,6 +5,8 @@ import { useSocketStore } from '../stores/socketStore';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/AuthStore';
 import { getVerifyUser } from '../utils/getVerifyUser';
+
+
 export default function ChatPage() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [messageInput, setMessageInput] = useState('');
@@ -23,6 +25,8 @@ export default function ChatPage() {
   const chatRef = useRef(null);
   const { user, setAuth } = useAuthStore();
   const { socket, loading, connectSocket } = useSocketStore()
+  const backend_url = import.meta.env.VITE_BACKEND_URL;
+
 
 
   // Mock data for chats
@@ -99,7 +103,7 @@ export default function ChatPage() {
   }, [socket])  // ← socket badla (null → connected) toh yeh chale
 
   const getMessages = (receiverId) => {
-    fetch(`http://localhost:3000/chatroom/${receiverId}`, {
+    fetch(`${backend_url}/chatroom/${receiverId}`, {
       method: "GET",
       credentials: "include"
     }).then(res => res.json())
@@ -110,7 +114,7 @@ export default function ChatPage() {
   }
 
   const getAllprofiles = () => {
-    fetch(`http://localhost:3000/chatroom/chats/profiles`, {
+    fetch(`${backend_url}/chatroom/chats/profiles`, {
       method: "GET",
       credentials: "include"
     }).then(res => res.json())
@@ -154,7 +158,7 @@ export default function ChatPage() {
     setChats((prev) => [...prev, senderData]);
     setMessageInput("");
     setSelectedImage(null);
-    const res = await fetch("http://localhost:3000/chatroom/imagesend", {
+    const res = await fetch(`${backend_url}/chatroom/imagesend`, {
       method: "POST",
       credentials: "include",
       body: formData,
