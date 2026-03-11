@@ -210,6 +210,16 @@ export default function ChatPage() {
 
   }
 
+  function setDate(date) {
+    const time = new Date(date).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+
+    return time;
+  }
+
   if (loading) {
     return (<p>Loading...</p>)
   }
@@ -281,15 +291,15 @@ export default function ChatPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900 truncate">{chat.username}</h3>
-                  <span className="text-xs text-gray-500 ml-2">{chat?.time || "5:30"}</span>
+                  <span className="text-xs text-gray-500 ml-2">{chatMessages?.findLast((u) => u?.senderId === chat._id)?.createdAt && setDate(chatMessages?.findLast((u) => u?.senderId === chat._id)?.createdAt) ||setDate(chat?.lastMessage?.createdAt) || "5:30"}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-600 truncate">{chatMessages?.findLast((u) => u?.senderId === chat._id)?.text || chat?.lastMessage?.text || "hey there I am chating..."}</p>
-                  {(chat?.unread || 2) > 0 && (
+                  {/* {(chat?.unread || 2) > 0 && (
                     <span className="ml-2 bg-indigo-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 min-w-[20px] text-center">
                       {chat?.unread || 2}
                     </span>
-                  )}
+                  )} */}
                 </div>
               </div>
             </div>
@@ -365,7 +375,7 @@ export default function ChatPage() {
                     <p className="text-sm">{message.text}</p>
                     <div className="flex items-center justify-end mt-1 space-x-1">
                       <span className={`text-xs ${(message?.senderId === user?._id) ? 'text-green-100' : 'text-gray-500'}`}>
-                        {new Date(message?.createdAt)?.toUTCString()?.split(' ')[4]}
+                        {setDate(message?.createdAt)}
                       </span>
                       {(message?.senderId === user?._id) && (
                         <svg className="w-4 h-4 text-green-100" fill="currentColor" viewBox="0 0 20 20">

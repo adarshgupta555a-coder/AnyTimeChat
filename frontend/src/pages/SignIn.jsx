@@ -42,6 +42,12 @@ export default function SignIn() {
     if ("serviceWorker" in navigator) {
       const register = await navigator.serviceWorker.register("/sw.js");
 
+      // check existing permission
+      let Checkpermission = Notification.permission;
+
+      // agar permission ask karni hai
+      if (Checkpermission === "denied") return;
+      
       const permission = await Notification.requestPermission();
 
       if (permission !== "granted") return;
