@@ -5,6 +5,9 @@ import { useSocketStore } from '../stores/socketStore';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/AuthStore';
 import { getVerifyUser } from '../utils/getVerifyUser';
+import ChatProfile from '../components/ChatProfiles';
+import { getAllprofiles } from '../utils/getAllprofiles';
+import ChatMessage from '../components/ChatMessages';
 
 
 export default function ChatPage() {
@@ -54,7 +57,12 @@ export default function ChatPage() {
       setAuth(data)
       connectSocket()
     })
-    getAllprofiles()
+    // getAllprofiles().then((data) => {
+    //   setchatProfile(data)
+    //   if (data.message === "Please login first") {
+    //     navigate("/signin");
+    //   }
+    // }).catch(err => console.log(err))
   }, [])
 
   // Effect 2 - jab socket ready ho TAB listeners lagao
@@ -72,7 +80,12 @@ export default function ChatPage() {
 
     socket.on("online-user", (data) => {
       setOnlineUsers(data.usersStatus || [])
-      getAllprofiles()
+      getAllprofiles().then((data) => {
+        setchatProfile(data)
+        if (data.message === "Please login first") {
+          navigate("/signin");
+        }
+      }).catch(err => console.log(err))
     })
 
     socket.on("offline-user", (data) => {
@@ -113,21 +126,6 @@ export default function ChatPage() {
       });
   }
 
-  const getAllprofiles = () => {
-    fetch(`${backend_url}/chatroom/chats/profiles`, {
-      method: "GET",
-      credentials: "include"
-    }).then(res => res.json())
-      .then(data => {
-        console.log(data)
-        setchatProfile(data)
-        if (data.message === "Please login first") {
-          navigate("/signin");
-        }
-      }).catch((err) => {
-        console.log(err);
-      })
-  }
 
   function getCurrentTimeHHMMSS() {
     const now = new Date();
@@ -232,7 +230,7 @@ export default function ChatPage() {
         <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
           <div className="relative">
             <img
-              src={(chatProfile?.find(pr => pr._id == user?._id))?.profilePic}
+              src={user?.profilePic}
               alt="Profile"
               className="w-10 h-10 rounded-full cursor-pointer"
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -271,38 +269,7 @@ export default function ChatPage() {
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
           {(chatProfile?.filter(pr => pr._id != user?._id))?.map((chat) => (
-            <div
-              key={chat?._id}
-              onClick={() => setSelectedChat(chat)}
-              className={`px-4 py-3 flex items-center space-x-3 hover:bg-gray-50 cursor-pointer transition ${selectedChat?._id === chat?._id ? 'bg-gray-100' : ''
-                }`}
-            >
-              <div className="relative flex-shrink-0">
-                <img
-                  src={chat?.profilePic}
-                  alt={chat?.username}
-                  className="w-12 h-12 rounded-full"
-                />
-                {OnlineUsers?.length > 0 && OnlineUsers.includes(chat._id) && (
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-600 border-2 border-white rounded-full"></div>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 truncate">{chat.username}</h3>
-                  <span className="text-xs text-gray-500 ml-2">{chatMessages?.findLast((u) => u?.senderId === chat._id)?.createdAt && setDate(chatMessages?.findLast((u) => u?.senderId === chat._id)?.createdAt) ||setDate(chat?.lastMessage?.createdAt) || "5:30"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600 truncate">{chatMessages?.findLast((u) => u?.senderId === chat._id)?.text || chat?.lastMessage?.text || "hey there I am chating..."}</p>
-                  {/* {(chat?.unread || 2) > 0 && (
-                    <span className="ml-2 bg-indigo-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                      {chat?.unread || 2}
-                    </span>
-                  )} */}
-                </div>
-              </div>
-            </div>
+            <ChatProfile key={chat._id} setchatProfile={setchatProfile} chat={chat} setSelectedChat={setSelectedChat} selectedChat={selectedChat} OnlineUsers={OnlineUsers} chatMessages={chatMessages} setDate={setDate} />
           ))}
         </div>
       </div>
@@ -357,34 +324,7 @@ export default function ChatPage() {
               }}
             >
               {chatMessages?.length > 0 && chatMessages?.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${(message?.senderId === user?._id) ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${(message?.senderId === user?._id)
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-900'
-                      } shadow`}
-                  >
-                    {message?.image && <img
-                      src={message.image}
-                      alt="preview"
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />}
-                    <p className="text-sm">{message.text}</p>
-                    <div className="flex items-center justify-end mt-1 space-x-1">
-                      <span className={`text-xs ${(message?.senderId === user?._id) ? 'text-green-100' : 'text-gray-500'}`}>
-                        {setDate(message?.createdAt)}
-                      </span>
-                      {(message?.senderId === user?._id) && (
-                        <svg className="w-4 h-4 text-green-100" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <ChatMessage key={index} message={message} user={user} setDate={setDate} />
               ))}
             </div>
 

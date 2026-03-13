@@ -5,7 +5,7 @@ const AuthRoutes = require("./router/authRoutes");
 const messageRoutes = require("./router/messageRoutes");
 const cookieParser = require("cookie-parser");
 const db = require("./utils/db");
-const {app, server} = require("./lib/socket")
+const { app, server } = require("./lib/socket")
 require("dotenv").config();
 
 app.use(cookieParser())
@@ -16,11 +16,14 @@ app.use(cors({
 
 app.use(express.json())
 
-app.use(express.urlencoded({extended:true}));
+app.use(express.urlencoded({ extended: true }));
 
-app.use("/users",AuthRoutes);
-app.use("/chatroom",messageRoutes)
+app.use("/users", AuthRoutes);
+app.use("/chatroom", messageRoutes)
 
-server.listen(3000,()=>{
-    console.log("port is running on 3000")
-})
+const PORT = process.env.PORT || 3000;
+
+
+server.listen(PORT, () => {
+    console.log(`Server running on ${PORT}`);
+});

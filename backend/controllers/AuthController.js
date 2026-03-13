@@ -8,6 +8,10 @@ const jwt = require("jsonwebtoken");
 const Signup = async (req, res) => {
     try {
         const { username, email, password, profilepic, subscribe } = req.body;
+        if (!username || !email || !password) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+
         const userCheck = await userModel.findOne({ email: email });
         if (userCheck) return res.status(400).send({ message: "this email is already exists." });
 
@@ -29,10 +33,16 @@ const Signup = async (req, res) => {
         })
 
         const token = generateToken(user);
-        res.cookie("token", token);
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
         res.status(200).send({ message: "Signup Successfully." })
     } catch (error) {
-        console.log(error)
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 }
 
@@ -60,15 +70,15 @@ const Signin = async (req, res) => {
         // console.log(token)
         res.cookie("token", token, {
             httpOnly: true,
-            secure: false,
-            sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.status(200).send({ message: "Signin Successfully", token: token })
     } catch (error) {
-        console.log("hi error")
-        console.log(error)
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 }
 
@@ -76,18 +86,24 @@ const Signin = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
     try {
-        const users = await userModel.find({});
+        const users = await userModel.find({}).select("-password -__v");;
         res.status(200).send(users)
         // console.log(req.cookies.token);
         // console.log(req.user)
     } catch (error) {
-        console.log(error)
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 }
 
 const logoutUser = async (req, res) => {
-    res.cookie("token", "");
-    res.redirect('/');
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none"
+    });
+
+    res.status(200).json({ message: "Logged out successfully" });
 }
 
 const verifyToken = async (req, res) => {

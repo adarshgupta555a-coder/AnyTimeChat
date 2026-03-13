@@ -93,41 +93,46 @@ io.on("connection", async (socket) => {
   })
 
   socket.on("send-message", async ({ receiverId, text, image }) => {
-    const roomId = getRoomId(socket.userId, receiverId);
-    const userSubs = await userModel.findById(receiverId);
-    console.log(text)
-    const payload = JSON.stringify({
-      title: "message",
-      message: text,
-    });
+    try {
+      const roomId = getRoomId(socket.userId, receiverId);
+      const userSubs = await userModel.findById(receiverId);
+      console.log(text)
+      const payload = JSON.stringify({
+        title: "message",
+        message: text,
+      });
 
 
-    // 1️⃣ Save message in MongoDB
-    const message = await messageModel.create({
-      roomId,
-      senderId: socket.userId,
-      receiverId: receiverId,
-      text,
-      image,
-      messageType: image ? "image" : "text",
-      status: userSocketMap.get(receiverId) ? "delivered" : "sent"
-    });
+      // 1️⃣ Save message in MongoDB
+      const message = await messageModel.create({
+        roomId,
+        senderId: socket.userId,
+        receiverId: receiverId,
+        text,
+        image,
+        messageType: image ? "image" : "text",
+        status: userSocketMap.get(receiverId) ? "delivered" : "sent"
+      });
 
-    // 2️⃣ Emit to room (real-time)
-    io.to(roomId).emit("receive-message", {
-      _id: message._id,
-      roomId: message.roomId,
-      senderId: message.senderId,
-      receiverId: message.receiverId,
-      text: message.text,
-      image: message.image,
-      status: message.status,
-      createdAt: message.createdAt,
-    });
+      // 2️⃣ Emit to room (real-time)
+      io.to(roomId).emit("receive-message", {
+        _id: message._id,
+        roomId: message.roomId,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        text: message.text,
+        image: message.image,
+        status: message.status,
+        createdAt: message.createdAt,
+      });
 
-    if (userSubs.msg && !usersStatus.has(receiverId)) {
-      let subscript = JSON.parse(userSubs.msg)
-       webpush.sendNotification(subscript, payload);
+      if (userSubs.msg && !usersStatus.has(receiverId)) {
+        let subscript = JSON.parse(userSubs.msg)
+        webpush.sendNotification(subscript, payload);
+      }
+
+    } catch (error) {
+      console.error("Send message error:", error);
     }
 
   });

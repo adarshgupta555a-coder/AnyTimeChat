@@ -78,7 +78,7 @@ const getProfiles = async (req, res) => {
     res.status(200).json(users);
   } catch (error) {
     console.log(error);
-    res.status(400).json({ error: "Something went wrong" });
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -87,7 +87,7 @@ const getProfiles = async (req, res) => {
 //       let profileImage = "";
 
 //       profileImage = await cloudinaryImage(req.file.path);
- 
+
 //         // 1️⃣ Save message in MongoDB
 //           const message = await messageModel.create({
 //             roomId,
@@ -98,7 +98,7 @@ const getProfiles = async (req, res) => {
 //             messageType: image ? "image" : "text",
 //             status: userSocketMap[receiverId] ? "delivered" : "sent",
 //           });
-      
+
 //           // 2️⃣ Emit to room (real-time)
 //           io.to(roomId).emit("receive-message", {
 //             _id: message._id,
@@ -117,39 +117,43 @@ const getProfiles = async (req, res) => {
 
 
 
-const handlemsgWithImg = async (req, res)=>{
+const handlemsgWithImg = async (req, res) => {
   try {
-    const {text, receiverId} = req.body;
+    const { text, receiverId } = req.body;
 
-      let profileImage = "";
+    let profileImage = "";
+    if (!req.file) {
+      return res.status(400).json({ message: "Image is required" });
+    }
+    profileImage = await cloudinaryImage(req.file.path);
 
-      profileImage = await cloudinaryImage(req.file.path);
-     const roomId = getRoomId(req.user._id, receiverId);
+    const roomId = getRoomId(req.user._id, receiverId);
 
-        // 1️⃣ Save message in MongoDB
-          const message = await messageModel.create({
-            roomId,
-            senderId: req.user._id,
-            receiverId: receiverId,
-            text,
-            image:profileImage,
-            messageType: profileImage ? "image" : "text",
-            status: receiverId ? "delivered" : "sent",
-          });
-      
-          // 2️⃣ Emit to room (real-time)
-          io.to(roomId).emit("receive-message", {
-            _id: message._id,
-            roomId: message.roomId,
-            senderId: message.senderId,
-            text: message.text,
-            image: message.image,
-            status: message.status,
-            createdAt: message.createdAt,
-          });
-        res.status(200).send({imageUrl: profileImage});
+    // 1️⃣ Save message in MongoDB
+    const message = await messageModel.create({
+      roomId,
+      senderId: req.user._id,
+      receiverId: receiverId,
+      text,
+      image: profileImage,
+      messageType: profileImage ? "image" : "text",
+      status: receiverId ? "delivered" : "sent",
+    });
+
+    // 2️⃣ Emit to room (real-time)
+    io.to(roomId).emit("receive-message", {
+      _id: message._id,
+      roomId: message.roomId,
+      senderId: message.senderId,
+      text: message.text,
+      image: message.image,
+      status: message.status,
+      createdAt: message.createdAt,
+    });
+    res.status(200).send({ imageUrl: profileImage });
   } catch (error) {
     console.log(error)
+      res.status(500).json({ message: "Server error" });
   }
 }
 
