@@ -1,4 +1,4 @@
-const userModel = require("../models/userModel");
+const userModel = require("../models/UserModel");
 const jwt = require("jsonwebtoken");
 
 const isLoggedin = async (req, res, next) => {

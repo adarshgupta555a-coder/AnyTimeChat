@@ -3,7 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const messageModel = require("../models/messageModel");
-const userModel = require("../models/userModel");
+const userModel = require("../models/UserModel");
 require("dotenv").config();
 const webpush = require('web-push');
 
