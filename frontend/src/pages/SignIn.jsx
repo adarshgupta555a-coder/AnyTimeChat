@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/AuthStore';
 
 
@@ -134,7 +134,7 @@ export default function SignIn() {
       if (!data.token) {
         alert("please enter correct details")
       } else {
-        navigate("/chatroom")
+        navigate("/")
       }
       setIsLoading(false);
     } catch (error) {
@@ -224,9 +224,9 @@ export default function SignIn() {
               />
               <span className="ml-2 text-sm text-gray-600">Remember me</span>
             </label>
-            <a href="#" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+            {/* <a href="#" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
               Forgot password?
-            </a>
+            </a> */}
           </div>
 
           {/* Submit Button */}
@@ -253,13 +253,13 @@ export default function SignIn() {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300"></div>
             </div>
-            <div className="relative flex justify-center text-sm">
+            {/* <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-white text-gray-500">Or continue with</span>
-            </div>
+            </div> */}
           </div>
 
           {/* Social Login Buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
@@ -281,16 +281,16 @@ export default function SignIn() {
               </svg>
               <span className="ml-2 text-sm font-medium text-gray-700">Facebook</span>
             </button>
-          </div>
+          </div> */}
         </form>
 
         {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Don't have an account?{' '}
-            <a href="#" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+            <Link to="/signup" className="text-indigo-600 hover:text-indigo-700 font-semibold">
               Sign Up
-            </a>
+            </Link>
           </p>
         </div>
       </div>

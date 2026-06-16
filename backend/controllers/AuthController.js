@@ -48,6 +48,7 @@ const Signup = async (req, res) => {
 
 const Signin = async (req, res) => {
     try {
+        // console.log(req.body)
         const { email, password, msg } = req.body;
         // console.log(email)
         const userCheck = await userModel.findOne({ email: email });
@@ -71,9 +72,18 @@ const Signin = async (req, res) => {
         res.cookie("token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "none",
+            sameSite: process.env.NODE_ENV === "production"
+                ? "none"
+                : "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
+
+        // res.cookie("token", token, {
+        //     httpOnly: true,
+        //     secure: false,
+        //     sameSite: "lax",
+        //     maxAge: 7 * 24 * 60 * 60 * 1000
+        // });
 
         res.status(200).send({ message: "Signin Successfully", token: token })
     } catch (error) {
@@ -86,8 +96,9 @@ const Signin = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
     try {
-        const users = await userModel.find({}).select("-password -__v");;
-        res.status(200).send(users)
+        const users = await userModel.find({}).select("-password -__v");
+        console.log(users)
+        res.status(200).send(users);
         // console.log(req.cookies.token);
         // console.log(req.user)
     } catch (error) {
@@ -115,6 +126,7 @@ const verifyToken = async (req, res) => {
         // console.log("Token:", token);
 
         if (!token) {
+            console.log(req.cookies.token)
             return res.status(401).send({ message: "Please login first" });
         }
 

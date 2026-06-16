@@ -9,14 +9,15 @@ const { app, server } = require("./lib/socket")
 require("dotenv").config();
 
 app.use(cookieParser())
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors({
     origin: process.env.FRONTEND_URL, // ya 3000 / frontend URL
     credentials: true
 }));
+        // const question = req.body;
+        // console.log(question)
 
-app.use(express.json())
-
-app.use(express.urlencoded({ extended: true }));
 
 app.use("/users", AuthRoutes);
 app.use("/chatroom", messageRoutes)
