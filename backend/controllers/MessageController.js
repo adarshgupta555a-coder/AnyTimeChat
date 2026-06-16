@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const messageModel = require("../models/messageModel");
-const userModel = require("../models/userModel");
+const userModel = require("../models/UserModel");
 const { cloudinaryImage } = require("./AuthController");
 const { io } = require("../lib/socket");
 
